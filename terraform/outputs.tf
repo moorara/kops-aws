@@ -11,8 +11,23 @@ output "vpc_cidr" {
 }
 
 output "availability_zones" {
-  value       = slice(data.aws_availability_zones.available.names, 0, local.az_len)
-  description = "A list of availability zones."
+  value       = join(",", slice(data.aws_availability_zones.available.names, 0, local.az_len))
+  description = "A comma-separated list of availability zones."
+}
+
+output "kops_subdomain" {
+  value       = local.subdomain
+  description = "The name of DNS zone for kops."
+}
+
+output "kops_s3_bucket" {
+  value       = aws_s3_bucket.kops.id
+  description = "The name of S3 bucket for kops state."
+}
+
+output "resource_tags" {
+  value       = join(",", [ for k, v in merge(local.common_tags, local.region_tag) : format("%s=%s", k, v) ])
+  description = "A comma-separated list of AWS tags."
 }
 
 output "kops_encrypted_secret" {

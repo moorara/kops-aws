@@ -1,7 +1,8 @@
 # https://www.terraform.io/docs/configuration/locals.html
 
 locals {
-  name = "kops-${var.environment}"
+  name      = "kops-${var.environment}"
+  subdomain = format("k8s.%s.%s", var.environment, var.domain)
 
   # Total number of availability zones required
   az_len = min(
