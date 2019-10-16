@@ -62,6 +62,41 @@ resource "aws_iam_access_key" "kops" {
 }
 
 # ================================================================================
+#  S3
+# ================================================================================
+
+# Guide:
+# https://github.com/kubernetes/kops/blob/master/docs/aws.md#cluster-state-storage
+
+# https://www.terraform.io/docs/providers/aws/r/s3_bucket.html
+# https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl
+resource "aws_s3_bucket" "kops" {
+  bucket        = "kops.${var.domain}"
+  acl           = "private"
+  region        = var.region
+  force_destroy = true
+
+  versioning {
+    enabled = true
+  }
+
+  tags = merge(local.common_tags, local.region_tag, {
+    Name = local.name
+  })
+}
+
+# https://www.terraform.io/docs/providers/aws/r/s3_bucket_public_access_block.html
+# https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html
+resource "aws_s3_bucket_public_access_block" "kops" {
+  bucket = aws_s3_bucket.kops.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# ================================================================================
 #  Route53
 # ================================================================================
 
@@ -75,7 +110,7 @@ data "aws_route53_zone" "main" {
 
 # https://www.terraform.io/docs/providers/aws/r/route53_zone.html
 resource "aws_route53_zone" "kops" {
-  name = "api.${var.domain}"
+  name = local.subdomain
 
   tags = merge(local.common_tags, {
     Name = local.name
@@ -95,27 +130,4 @@ resource "aws_route53_record" "dev-ns" {
     aws_route53_zone.kops.name_servers.2,
     aws_route53_zone.kops.name_servers.3,
   ]
-}
-
-# ================================================================================
-#  S3
-# ================================================================================
-
-# Guide:
-# https://github.com/kubernetes/kops/blob/master/docs/aws.md#cluster-state-storage
-
-# https://www.terraform.io/docs/providers/aws/r/s3_bucket.html
-resource "aws_s3_bucket" "kops" {
-  bucket        = "kops.${var.domain}"
-  acl           = "private"
-  region        = var.region
-  force_destroy = true
-
-  versioning {
-    enabled = true
-  }
-
-  tags = merge(local.common_tags, local.region_tag, {
-    Name = local.name
-  })
 }
