@@ -23,11 +23,13 @@ for encrypting the AWS Secret Access Key for _kops_ user by Terraform and decryp
 
 ## TO-DO
 
-  - [ ] Add `region` name to _cluster name_ and _dns zone_
-  - [ ] Considering installing `cni` for _networking_ option
   - [ ] Using kops _manifesto_ and _templates_
+  - [ ] Generating _Terraform_ code from kops
+  - [ ] Configuring generated terraform code to use the right AWS credentials
 
 ## References
+
+  - [Docs](https://github.com/kubernetes/kops/tree/master/docs)
 
 ### Getting Started
 

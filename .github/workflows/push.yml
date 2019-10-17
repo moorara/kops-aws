@@ -6,19 +6,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - name: Terraform Validate
+      - name: Set Terraform Variables
         shell: bash
         env:
           AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
           AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
         run: |
-          TF_VAR_access_key="$AWS_ACCESS_KEY"
-          TF_VAR_secret_key="$AWS_SECRET_KEY"
-          TF_VAR_region="us-east-1"
-          TF_VAR_environment="test"
-          TF_VAR_domain="example.com"
-          TF_VAR_keybase_username="username"
+          echo "access_key = \"$AWS_ACCESS_KEY\"" > infra-terraform/terraform.tfvars
+          echo "secret_key = \"$AWS_SECRET_KEY\"" >> infra-terraform/terraform.tfvars
+          echo 'region = "us-east-1"' >> infra-terraform/terraform.tfvars
+          echo 'environment = "test"' >> infra-terraform/terraform.tfvars
+          echo 'domain = "example.com"' >> infra-terraform/terraform.tfvars
+          echo 'keybase_username = "username"' >> infra-terraform/terraform.tfvars
 
+          # echo "access_key       = \"$AWS_ACCESS_KEY\""  >  infra-terraform/terraform.tfvars
+          # echo "secret_key       = \"$AWS_SECRET_KEY\""  >> infra-terraform/terraform.tfvars
+          # echo 'region           = "us-east-1"'          >> infra-terraform/terraform.tfvars
+          # echo 'environment      = "test"'               >> infra-terraform/terraform.tfvars
+          # echo 'domain           = "example.com"'        >> infra-terraform/terraform.tfvars
+          # echo 'keybase_username = "username"'           >> infra-terraform/terraform.tfvars
+      - name: Terraform Validate
+        shell: bash
+        run: |
           # terraform is available in the GitHub Actions virtual environment
-          cd terraform
+          cd infra-terraform
           make init validate

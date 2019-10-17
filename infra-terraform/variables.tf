@@ -83,6 +83,12 @@ variable "enable_vpc_logs" {
   default     = false
 }
 
+variable "create_subnets" {
+  type        = bool
+  description = ""
+  default     = false
+}
+
 variable "az_count" {
   type        = number
   description = "The total number of availability zones required."
