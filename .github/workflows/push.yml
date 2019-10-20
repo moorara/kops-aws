@@ -30,4 +30,5 @@ jobs:
         run: |
           # terraform is available in the GitHub Actions virtual environment
           cd infra-terraform
+          cat terraform.tfvars
           make init validate
