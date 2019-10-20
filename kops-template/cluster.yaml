@@ -1,0 +1,151 @@
+apiVersion: kops/v1alpha2
+kind: Cluster
+metadata:
+  name: {{.cluster_name.value}}
+# https://godoc.org/k8s.io/kops/pkg/apis/kops#ClusterSpec
+spec:
+  channel: stable
+  cloudProvider: aws
+  configBase: s3://{{.s3_bucket.value}}/{{.cluster_name.value}}
+  kubernetesVersion: {{.kubernetes_version.value}}
+  api:
+    loadBalancer:
+      type: Public
+  authorization:
+    rbac: {}
+  iam:
+    legacy: false
+    allowContainerRegistry: true
+  kubelet:
+    anonymousAuth: false
+  # https://godoc.org/k8s.io/kops/pkg/apis/kops#TopologySpec
+  topology:
+    masters: private
+    nodes: private
+    dns:
+      type: Public
+    bastion:
+      bastionPublicName: bastion.{{.dns_zone.value}}
+  # https://godoc.org/k8s.io/kops/pkg/apis/kops#NetworkingSpec
+  networking:
+    weave:
+      mtu: 8912
+  dnsZone: {{.dns_zone.value}}
+  masterPublicName: api.{{.dns_zone.value}}
+  networkID: {{.vpc_id.value}}
+  networkCIDR: {{.vpc_cidr.value}}
+  nonMasqueradeCIDR: 100.64.0.0/10
+  kubernetesApiAccess:
+    - 0.0.0.0/0
+  sshAccess:
+    - 0.0.0.0/0
+  # https://godoc.org/k8s.io/kops/pkg/apis/kops#ClusterSubnetSpec
+  subnets:
+    # Private subnets, one per AZ
+    {{range $i, $id := .private_subnet_ids.value}}
+    - id: {{.}}
+      type: Private
+      name: {{index $.availability_zones.value $i}}
+      zone: {{index $.availability_zones.value $i}}
+      egress: {{index $.nat_gateway_ids.value $i}}
+    {{end}}
+    # Public (utility) subnets, one per AZ
+    {{range $i, $id := .public_subnet_ids.value}}
+    - id: {{.}}
+      type: Utility
+      name: utility-{{index $.availability_zones.value $i}}
+      zone: {{index $.availability_zones.value $i}}
+    {{end}}
+  # https://godoc.org/k8s.io/kops/pkg/apis/kops#EtcdClusterSpec
+  etcdClusters:
+    - name: main
+      cpuRequest: 200m
+      memoryRequest: 100Mi
+      etcdMembers:
+        {{range $i, $az := .availability_zones.value}}
+        - name: {{. | replace $.region.value "" }}
+          instanceGroup: master-{{.}}
+        {{end}}
+    - name: events
+      cpuRequest: 100m
+      memoryRequest: 100Mi
+      etcdMembers:
+        {{range $i, $az := .availability_zones.value}}
+        - name: {{. | replace $.region.value "" }}
+          instanceGroup: master-{{.}}
+        {{end}}
+  cloudLabels:
+    Environment: {{.metadata.environment.value}}
+    Region: {{.metadata.region.value}}
+    UUID: {{.metadata.uuid.value}}
+    Owner: {{.metadata.owner.value}}
+    GitURL: {{.metadata.git_url.value}}
+    GitBranch: {{.metadata.git_branch.value}}
+    GitCommit: {{.metadata.git_commit.value}}
+
+---
+
+# One instance group per AZ for each master 
+{{range .availability_zones.value}}
+apiVersion: kops/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: master-{{.}}
+  labels:
+    kops.k8s.io/cluster: {{.cluster_name.value}}
+# https://godoc.org/k8s.io/kops/pkg/apis/kops#InstanceGroupSpec
+spec:
+  role: Master
+  image: {{.instance_ami.value}}
+  machineType: {{.master_instance_type.value}}
+  minSize: 1
+  maxSize: 1
+  subnets:
+    - {{.}}
+  nodeLabels:
+    kops.k8s.io/instancegroup: master-{{.}}
+
+---
+{{end}}
+
+apiVersion: kops/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: nodes
+  labels:
+    kops.k8s.io/cluster: {{.cluster_name.value}}
+# https://godoc.org/k8s.io/kops/pkg/apis/kops#InstanceGroupSpec
+spec:
+  role: Node
+  image: {{.instance_ami.value}}
+  machineType: {{.node_instance_type.value}}
+  minSize: {{.node_count.value}}
+  maxSize: {{.node_count.value}}
+  subnets:
+    {{range .availability_zones.value}}
+    - {{.}}
+    {{end}}
+  nodeLabels:
+    kops.k8s.io/instancegroup: nodes
+
+---
+
+apiVersion: kops/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: bastions
+  labels:
+    kops.k8s.io/cluster: {{.cluster_name.value}}
+# https://godoc.org/k8s.io/kops/pkg/apis/kops#InstanceGroupSpec
+spec:
+  role: Bastion
+  image: {{.instance_ami.value}}
+  machineType: {{.bastion_instance_type.value}}
+  minSize: 1
+  maxSize: 1
+  subnets:
+    {{range .availability_zones.value}}
+    - utility-{{.}}
+    {{end}}
+  nodeLabels:
+    kops.k8s.io/instancegroup: bastions

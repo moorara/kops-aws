@@ -20,5 +20,5 @@ jobs:
           TF_VAR_keybase_username="username"
 
           # terraform is available in the GitHub Actions virtual environment
-          cd terraform
+          cd infra-terraform
           make init validate
