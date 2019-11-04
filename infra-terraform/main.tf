@@ -4,18 +4,14 @@
 terraform {
   # Equivalent to ">= 0.12, < 1.0"
   required_version = "~> 0.12"
-  backend "s3" {
-    bucket = "terraform.sourcherry.io"
-    key    = "infra"
-    region = "us-east-1"
-  }
+  backend "s3" {}
 }
 
 # https://www.terraform.io/docs/providers/aws
 # https://www.terraform.io/docs/configuration/providers.html#version-provider-versions
 provider "aws" {
-  # Equivalent to ">= 2.32.0, < 2.0.0"
-  version    = "~> 2.32"  
+  # Equivalent to ">= 2.34.0, < 2.0.0"
+  version    = "~> 2.34"  
   access_key = var.access_key
   secret_key = var.secret_key
   region     = var.region

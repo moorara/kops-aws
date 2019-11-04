@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
-# 1.14.6
-# kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16
+#
+# COMMANDS:
+#   - ./kops create       Creates the cluster
+#   - ./kops update       Updates the cluster
+#   - ./kops delete       Deletes the cluster
+#   - ./kops template     Generates manifest file
+#   - ./kops terraform    Generates Terraform code
+#
 
 set -euo pipefail
 
@@ -60,6 +66,63 @@ generate_ssh_keys() {
   ssh-keygen -f "$bastion_key" -t rsa -N '' 1> /dev/null
 	chmod 400 "$bastion_key"
 	mv "$bastion_key" "$bastion_key.pem"
+}
+
+create_cluster() {
+  read_cluster_info
+  read_config_params
+  generate_ssh_keys
+
+  kops create cluster "$cluster_name" \
+    `#Cloud` \
+      --cloud aws \
+      --state "$s3_bucket" \
+      --cloud-labels "$aws_tags" \
+    `#Networking` \
+      --topology private \
+      --networking weave \
+      --vpc "$vpc_id" \
+      --subnets "$private_subnets" \
+      --utility-subnets "$public_subnets" \
+    `#Masters` \
+      --master-zones "$availability_zones" \
+      --master-count "$master_count" \
+      --master-size "$master_size" \
+      `# --master-volume-size` \
+      `# --master-security-groups` \
+    `#Nodes` \
+      --zones "$availability_zones" \
+      --node-count "$node_count" \
+      --node-size "$node_size" \
+      `# --node-volume-size` \
+      `# --node-security-groups` \
+    `#Security` \
+      --authorization RBAC \
+      --bastion \
+      --ssh-public-key "$bastion_key.pub" \
+      `# --ssh-access CIDR` \
+      `# --admin-access CIDR` \
+    `#DNS` \
+      --dns public \
+      --dns-zone "$dns_zone"
+}
+
+update_cluster() {
+  read_cluster_info
+
+  kops update cluster "$cluster_name" \
+    --state "$s3_bucket" \
+    --yes
+}
+
+delete_cluster() {
+  read_cluster_info
+
+  rm -f *.pub *.pem
+
+  kops delete cluster "$cluster_name" \
+    --state "$s3_bucket" \
+    --yes
 }
 
 generate_template() {
@@ -146,73 +209,10 @@ generate_terraform() {
       --out ./kops-terraform
 }
 
-create_cluster() {
-  read_cluster_info
-  read_config_params
-  generate_ssh_keys
-
-  kops create cluster "$cluster_name" \
-    `#Cloud` \
-      --cloud aws \
-      --state "$s3_bucket" \
-      --cloud-labels "$aws_tags" \
-    `#Networking` \
-      --topology private \
-      --networking weave \
-      --vpc "$vpc_id" \
-      --subnets "$private_subnets" \
-      --utility-subnets "$public_subnets" \
-    `#Masters` \
-      --master-zones "$availability_zones" \
-      --master-count "$master_count" \
-      --master-size "$master_size" \
-      `# --master-volume-size` \
-      `# --master-security-groups` \
-    `#Nodes` \
-      --zones "$availability_zones" \
-      --node-count "$node_count" \
-      --node-size "$node_size" \
-      `# --node-volume-size` \
-      `# --node-security-groups` \
-    `#Security` \
-      --authorization RBAC \
-      --bastion \
-      --ssh-public-key "$bastion_key.pub" \
-      `# --ssh-access CIDR` \
-      `# --admin-access CIDR` \
-    `#DNS` \
-      --dns public \
-      --dns-zone "$dns_zone"
-}
-
-update_cluster() {
-  read_cluster_info
-
-  kops update cluster "$cluster_name" \
-    --state "$s3_bucket" \
-    --yes
-}
-
-delete_cluster() {
-  read_cluster_info
-
-  rm -f *.pub *.pem
-
-  kops delete cluster "$cluster_name" \
-    --state "$s3_bucket" \
-    --yes
-}
-
 main() {
   cmd="$1"
 
   case "$cmd" in
-    "template")
-      generate_template
-      ;;
-    "terraform")
-      generate_terraform
-      ;;
     "create")
       create_cluster
       ;;
@@ -221,6 +221,12 @@ main() {
       ;;
     "delete")
       delete_cluster
+      ;;
+    "template")
+      generate_template
+      ;;
+    "terraform")
+      generate_terraform
       ;;
   esac
 }
