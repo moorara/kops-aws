@@ -53,6 +53,34 @@ variable "git_commit" {
 
 # ======================================== Configurations ========================================
 
+variable "domain" {
+  type        = string
+  description = "A full domain name for the deployment."
+}
+
+variable "keybase_username" {
+  type        = string
+  description = "A keybase username for encrypting the kops user AWS Secret Access Key."
+}
+
+variable "az_count" {
+  type        = number
+  description = "The total number of availability zones required."
+  default     = 99  // This is a hack to default to all availability zones
+}
+
+variable "create_subnets" {
+  type        = bool
+  description = "Whether or not to create private and public subnets with gateways."
+  default     = false
+}
+
+variable "enable_vpc_logs" {
+  type        = bool
+  description = "Whether or not to enable VPC flow logs."
+  default     = false
+}
+
 # https://en.wikipedia.org/wiki/Classful_network
 variable "vpc_cidrs" {
   type        = map(string)
@@ -75,32 +103,4 @@ variable "vpc_cidrs" {
     us-west-1      = "10.24.0.0/16",
     us-west-2      = "10.25.0.0/16"
   }
-}
-
-variable "enable_vpc_logs" {
-  type        = bool
-  description = "Whether or not to enable VPC flow logs."
-  default     = false
-}
-
-variable "create_subnets" {
-  type        = bool
-  description = "Whether or not to create private and public subnets with gateways."
-  default     = false
-}
-
-variable "az_count" {
-  type        = number
-  description = "The total number of availability zones required."
-  default     = 99  // This is a hack to default to all availability zones
-}
-
-variable "domain" {
-  type        = string
-  description = "A full domain name for the deployment."
-}
-
-variable "keybase_username" {
-  type        = string
-  description = "A keybase username for encrypting the kops user AWS Secret Access Key."
 }
