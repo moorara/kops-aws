@@ -1,5 +1,6 @@
 region := $(shell cat terraform.tfvars | grep region | grep -oe '".*"')
 environment := $(shell cat terraform.tfvars | grep environment | grep -oe '".*"')
+domain := $(shell cat terraform.tfvars | grep domain | grep -oe '".*"')
 
 uuid := $(shell uuidgen)
 owner := $(shell whoami)
@@ -22,7 +23,10 @@ keys:
 
 .PHONY: init
 init:
-	@ terraform init
+	@ terraform init \
+	    -backend-config="bucket=$(domain)" \
+	    -backend-config="key=$(environment)/terraform/infra.tfstate" \
+	    -backend-config="region=$(region)"
 
 .PHONY: validate
 validate:
