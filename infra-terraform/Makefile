@@ -24,9 +24,9 @@ keys:
 .PHONY: init
 init:
 	@ terraform init \
-	    -backend-config="bucket=$(domain)" \
-	    -backend-config="key=$(environment)/terraform/infra.tfstate" \
-	    -backend-config="region=$(region)"
+	    -backend-config="bucket=terraform.$(domain)" \
+	    -backend-config="key=$(environment)/infra.tfstate" \
+	    -backend-config="region=us-east-1"
 
 .PHONY: validate
 validate:

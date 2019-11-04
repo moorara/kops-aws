@@ -85,8 +85,6 @@ resource "aws_nat_gateway" "main" {
 # https://www.terraform.io/docs/providers/aws/r/internet_gateway.html
 # https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html
 resource "aws_internet_gateway" "main" {
-  count = var.create_subnets ? local.az_len : 0
-
   vpc_id = aws_vpc.main.id
 
   tags = merge(local.common_tags, local.region_tag, {
@@ -132,12 +130,12 @@ resource "aws_route_table" "public" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main[0].id
+    gateway_id = aws_internet_gateway.main.id
   }
 
   route {
     ipv6_cidr_block = "::/0"
-    gateway_id = aws_internet_gateway.main[0].id
+    gateway_id = aws_internet_gateway.main.id
   }
 
   tags = merge(local.common_tags, local.region_tag, {
