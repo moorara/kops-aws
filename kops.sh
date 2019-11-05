@@ -1,16 +1,94 @@
 #!/usr/bin/env bash
 
+help='
 #
 # COMMANDS:
-#   - ./kops create       Creates the cluster
-#   - ./kops update       Updates the cluster
-#   - ./kops delete       Deletes the cluster
-#   - ./kops template     Generates manifest file
-#   - ./kops terraform    Generates Terraform code
+#   ./kops create       Creates the cluster
+#   ./kops update       Updates the cluster
+#   ./kops delete       Deletes the cluster
+#   ./kops template     Generates manifest file
+#   ./kops terraform    Generates Terraform code
 #
+# FLAGS:
+#   -m, --master-count         Number of master instances in the cluster (default: 5)
+#       --master-size          Instace type for masters in the cluster (default: t2.micro)
+#       --master-volume        Size of volumes for master instances in gigabytes (default: 32GB)
+#   -n, --node-count           Number of node instances in the cluster (default: 3)
+#       --node-size            Instace type for nodes in the cluster (default: t2.micro)
+#       --node-volume          Size of volumes for node instances in gigabytes (default: 64GB)
+#       --admin-access-cidr    CIDR block for SSH access to the instances in the cluster (default: 0.0.0.0/0)
+#       --ssh-access-cidr      CIDR block for administrative access to the cluster (default: 0.0.0.0/0)
+#
+'
 
 set -euo pipefail
 
+
+process_args() {
+  if [[ $# == 0 ]]; then
+    echo "$help"
+    exit 1
+  fi
+
+  # Declare variables
+  cmd=""
+
+  # Default configurations for masters
+  master_count=5
+  master_size="t2.micro"
+  master_volume=32
+
+  # Default configurations for nodes
+  node_count=3
+  node_size="t2.micro"
+  node_volume=64
+
+  # Default CIDRs
+  admin_access_cidr="0.0.0.0/0"
+  ssh_access_cidr="0.0.0.0/0"
+
+  while [[ $# > 0 ]]; do
+    key="$1"
+    case $key in
+      create|update|delete|template|terraform)
+        cmd="$1"
+        ;;
+      -m|--master-count)
+        master_count="$2"
+        shift
+        ;;
+      --master-size)
+        master_size="$2"
+        shift
+        ;;
+      --master-volume)
+        master_volume="$2"
+        shift
+        ;;
+      -n|--node-count)
+        node_count="$2"
+        shift
+        ;;
+      --node-size)
+        node_size="$2"
+        shift
+        ;;
+      --node-volume)
+        node_volume="$2"
+        shift
+        ;;
+      --admin-access-cidr)
+        admin_access_cidr="$2"
+        shift
+        ;;
+      --ssh-access-cidr)
+        ssh_access_cidr="$2"
+        shift
+        ;;
+    esac
+    shift
+  done
+}
 
 read_cluster_info() {
   cd infra-terraform
@@ -28,36 +106,13 @@ read_config_params() {
   cd infra-terraform
 
   availability_zones="$(terraform output availability_zones)"
-  echo -e "\033[1;36m availability_zones=$availability_zones \033[0m"
-
   dns_zone="$(terraform output kops_subdomain)"
-  echo -e "\033[1;36m dns_zone=$dns_zone \033[0m"
-
   vpc_id="$(terraform output vpc_id)"
-  echo -e "\033[1;36m vpc_id=$vpc_id \033[0m"
-
   private_subnets="$(terraform output private_subnet_ids)"
-  echo -e "\033[1;36m private_subnets=$private_subnets \033[0m"
-
   public_subnets="$(terraform output public_subnet_ids)"
-  echo -e "\033[1;36m public_subnets=$public_subnets \033[0m"
-
   aws_tags="$(terraform output resource_tags)"
-  echo -e "\033[1;36m aws_tags=$aws_tags \033[0m"
 
   cd ..
-
-  master_count=5
-  echo -e "\033[1;36m master_count=$master_count \033[0m"
-
-  master_size="t2.micro"
-  echo -e "\033[1;36m master_size=$master_size \033[0m"
-
-  node_count=3
-  echo -e "\033[1;36m node_count=$node_count \033[0m"
-
-  node_size="t2.micro"
-  echo -e "\033[1;36m node_size=$node_size \033[0m"
 }
 
 generate_ssh_keys() {
@@ -88,20 +143,18 @@ create_cluster() {
       --master-zones "$availability_zones" \
       --master-count "$master_count" \
       --master-size "$master_size" \
-      `# --master-volume-size` \
-      `# --master-security-groups` \
+      --master-volume-size "$master_volume" \
     `#Nodes` \
       --zones "$availability_zones" \
       --node-count "$node_count" \
       --node-size "$node_size" \
-      `# --node-volume-size` \
-      `# --node-security-groups` \
+      --node-volume-size "$node_volume" \
     `#Security` \
       --authorization RBAC \
+      --admin-access "$admin_access_cidr" \
       --bastion \
       --ssh-public-key "$bastion_key.pub" \
-      `# --ssh-access CIDR` \
-      `# --admin-access CIDR` \
+      --ssh-access "$ssh_access_cidr" \
     `#DNS` \
       --dns public \
       --dns-zone "$dns_zone"
@@ -145,20 +198,18 @@ generate_template() {
       --master-zones "$availability_zones" \
       --master-count "$master_count" \
       --master-size "$master_size" \
-      `# --master-volume-size` \
-      `# --master-security-groups` \
+      --master-volume-size "$master_volume" \
     `#Nodes` \
       --zones "$availability_zones" \
       --node-count "$node_count" \
       --node-size "$node_size" \
-      `# --node-volume-size` \
-      `# --node-security-groups` \
+      --node-volume-size "$node_volume" \
     `#Security` \
       --authorization RBAC \
+      --admin-access "$admin_access_cidr" \
       --bastion \
       --ssh-public-key "$bastion_key.pub" \
-      `# --ssh-access CIDR` \
-      `# --admin-access CIDR` \
+      --ssh-access "$ssh_access_cidr" \
     `#DNS` \
       --dns public \
       --dns-zone "$dns_zone" \
@@ -187,20 +238,18 @@ generate_terraform() {
       --master-zones "$availability_zones" \
       --master-count "$master_count" \
       --master-size "$master_size" \
-      `# --master-volume-size` \
-      `# --master-security-groups` \
+      --master-volume-size "$master_volume" \
     `#Nodes` \
       --zones "$availability_zones" \
       --node-count "$node_count" \
       --node-size "$node_size" \
-      `# --node-volume-size` \
-      `# --node-security-groups` \
+      --node-volume-size "$node_volume" \
     `#Security` \
       --authorization RBAC \
+      --admin-access "$admin_access_cidr" \
       --bastion \
       --ssh-public-key "$bastion_key.pub" \
-      `# --ssh-access CIDR` \
-      `# --admin-access CIDR` \
+      --ssh-access "$ssh_access_cidr" \
     `#DNS` \
       --dns public \
       --dns-zone "$dns_zone" \
@@ -209,27 +258,22 @@ generate_terraform() {
       --out ./kops-terraform
 }
 
-main() {
-  cmd="$1"
 
-  case "$cmd" in
-    "create")
-      create_cluster
-      ;;
-    "update")
-      update_cluster
-      ;;
-    "delete")
-      delete_cluster
-      ;;
-    "template")
-      generate_template
-      ;;
-    "terraform")
-      generate_terraform
-      ;;
-  esac
-}
-
-
-main "$1"
+process_args "$@"
+case "$cmd" in
+  create)
+    create_cluster
+    ;;
+  update)
+    update_cluster
+    ;;
+  delete)
+    delete_cluster
+    ;;
+  template)
+    generate_template
+    ;;
+  terraform)
+    generate_terraform
+    ;;
+esac
