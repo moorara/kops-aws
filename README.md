@@ -53,6 +53,8 @@ make keys init plan
 make apply
 ```
 
+After this step, you have three options for deploying the cluster.
+
 ### kops
 
 After the `infra-terraform` project is successfully deployed,
@@ -62,7 +64,7 @@ change the directory to root and run the following command:
 ./kops.sh create
 ```
 
-If no error, you can run the following command to actaully deploy the cluster:
+If no error, you can run the following command to actually deploy the cluster:
 
 ```
 ./kops.sh update
@@ -74,15 +76,37 @@ For deleting the cluster, run the following command:
 ./kops.sh delete
 ```
 
-### Manifest
+### Manifest Template
 
 ### Terraform
+
+After the `infra-terraform` project is successfully deployed,
+change the directory to root and run the following command:
+
+```
+./kops.sh terraform
+```
+
+If no error, change the directory to `kops-terraform` and first run these commands:
+
+```
+make init
+make upgrade
+```
+
+This initialize the Terraform project and migrates the Terraform source code to the latest version (`0.12`).
+Now, you can plan and apply this Terraform project as usual.
+
+```
+make plan
+make apply
+```
 
 ## TO-DO
 
   - [x] Using kops commands
   - [ ] Using kops _manifest_ and _template_
-  - [ ] Generating _Terraform_ code from kops
+  - [x] Generating _Terraform_ code from kops
   - [ ] Configuring generated terraform code to use the right AWS credentials
 
 ## References
