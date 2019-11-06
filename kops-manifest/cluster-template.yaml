@@ -1,13 +1,15 @@
 apiVersion: kops/v1alpha2
 kind: Cluster
 metadata:
-  name: {{.cluster_name.value}}
+  name: {{.kops_subdomain.value}}
 # https://godoc.org/k8s.io/kops/pkg/apis/kops#ClusterSpec
 spec:
   channel: stable
+  kubernetesVersion: {{.kubernetes_version}}
   cloudProvider: aws
-  configBase: s3://{{.s3_bucket.value}}/{{.cluster_name.value}}
-  kubernetesVersion: {{.kubernetes_version.value}}
+  configBase: s3://{{.kops_s3_bucket.value}}/{{.kops_subdomain.value}}
+  dnsZone: {{.kops_subdomain.value}}
+  masterPublicName: api.{{.kops_subdomain.value}}
   api:
     loadBalancer:
       type: Public
@@ -18,6 +20,14 @@ spec:
     allowContainerRegistry: true
   kubelet:
     anonymousAuth: false
+  kubernetesApiAccess:
+    {{range .admin_access_cidrs}}
+    - {{.}}
+    {{end}}
+  sshAccess:
+    {{range .ssh_access_cidrs}}
+    - {{.}}
+    {{end}}
   # https://godoc.org/k8s.io/kops/pkg/apis/kops#TopologySpec
   topology:
     masters: private
@@ -25,79 +35,75 @@ spec:
     dns:
       type: Public
     bastion:
-      bastionPublicName: bastion.{{.dns_zone.value}}
+      bastionPublicName: bastion.{{.kops_subdomain.value}}
+  networkID: {{.vpc_id.value}}
+  networkCIDR: {{.vpc_cidr.value}}
+  nonMasqueradeCIDR: 100.64.0.0/10
+  # https://godoc.org/k8s.io/kops/pkg/apis/kops#ClusterSubnetSpec
+  subnets:
+    # Private subnets, one per AZ
+    {{range $i, $subnet := .private_subnets_list.value}}
+    - id: {{.id}}
+      type: Private
+      name: {{.availability_zone}}
+      zone: {{.availability_zone}}
+      cidr: {{.cidr}}
+    {{end}}
+    # Public (utility) subnets, one per AZ
+    {{range $i, $subnet := .public_subnets_list.value}}
+    - id: {{.id}}
+      type: Utility
+      name: utility-{{.availability_zone}}
+      zone: {{.availability_zone}}
+      cidr: {{.cidr}}
+    {{end}}
   # https://godoc.org/k8s.io/kops/pkg/apis/kops#NetworkingSpec
   networking:
     weave:
       mtu: 8912
-  dnsZone: {{.dns_zone.value}}
-  masterPublicName: api.{{.dns_zone.value}}
-  networkID: {{.vpc_id.value}}
-  networkCIDR: {{.vpc_cidr.value}}
-  nonMasqueradeCIDR: 100.64.0.0/10
-  kubernetesApiAccess:
-    - 0.0.0.0/0
-  sshAccess:
-    - 0.0.0.0/0
-  # https://godoc.org/k8s.io/kops/pkg/apis/kops#ClusterSubnetSpec
-  subnets:
-    # Private subnets, one per AZ
-    {{range $i, $id := .private_subnet_ids.value}}
-    - id: {{.}}
-      type: Private
-      name: {{index $.availability_zones.value $i}}
-      zone: {{index $.availability_zones.value $i}}
-      egress: {{index $.nat_gateway_ids.value $i}}
-    {{end}}
-    # Public (utility) subnets, one per AZ
-    {{range $i, $id := .public_subnet_ids.value}}
-    - id: {{.}}
-      type: Utility
-      name: utility-{{index $.availability_zones.value $i}}
-      zone: {{index $.availability_zones.value $i}}
-    {{end}}
   # https://godoc.org/k8s.io/kops/pkg/apis/kops#EtcdClusterSpec
   etcdClusters:
     - name: main
       cpuRequest: 200m
       memoryRequest: 100Mi
       etcdMembers:
-        {{range $i, $az := .availability_zones.value}}
-        - name: {{. | replace $.region.value "" }}
+        {{range $i, $az := .availability_zones_list.value}}
+        - name: {{. | replace $.region.value "" }} # converts us-east-1a to a
           instanceGroup: master-{{.}}
         {{end}}
     - name: events
       cpuRequest: 100m
       memoryRequest: 100Mi
       etcdMembers:
-        {{range $i, $az := .availability_zones.value}}
-        - name: {{. | replace $.region.value "" }}
+        {{range $i, $az := .availability_zones_list.value}}
+        - name: {{. | replace $.region.value "" }} # converts us-east-1a to a
           instanceGroup: master-{{.}}
         {{end}}
   cloudLabels:
-    Environment: {{.metadata.environment.value}}
-    Region: {{.metadata.region.value}}
-    UUID: {{.metadata.uuid.value}}
-    Owner: {{.metadata.owner.value}}
-    GitURL: {{.metadata.git_url.value}}
-    GitBranch: {{.metadata.git_branch.value}}
-    GitCommit: {{.metadata.git_commit.value}}
+    Environment: {{.environment.value}}
+    Region: {{.region.value}}
+    UUID: {{.uuid}}
+    Owner: {{.owner}}
+    GitURL: {{.git_url}}
+    GitBranch: {{.git_branch}}
+    GitCommit: {{.git_commit}}
 
 ---
 
 # One instance group per AZ for each master 
-{{range .availability_zones.value}}
+{{range .availability_zones_list.value}}
 apiVersion: kops/v1alpha2
 kind: InstanceGroup
 metadata:
   name: master-{{.}}
   labels:
-    kops.k8s.io/cluster: {{.cluster_name.value}}
+    kops.k8s.io/cluster: {{$.kops_subdomain.value}}
 # https://godoc.org/k8s.io/kops/pkg/apis/kops#InstanceGroupSpec
 spec:
   role: Master
-  image: {{.instance_ami.value}}
-  machineType: {{.master_instance_type.value}}
+  image: {{$.instance_ami}}
+  machineType: {{$.master_instance_type}}
+  rootVolumeSize: {{$.master_volume_size}}
   minSize: 1
   maxSize: 1
   subnets:
@@ -113,16 +119,17 @@ kind: InstanceGroup
 metadata:
   name: nodes
   labels:
-    kops.k8s.io/cluster: {{.cluster_name.value}}
+    kops.k8s.io/cluster: {{.kops_subdomain.value}}
 # https://godoc.org/k8s.io/kops/pkg/apis/kops#InstanceGroupSpec
 spec:
   role: Node
-  image: {{.instance_ami.value}}
-  machineType: {{.node_instance_type.value}}
-  minSize: {{.node_count.value}}
-  maxSize: {{.node_count.value}}
+  image: {{.instance_ami}}
+  machineType: {{.node_instance_type}}
+  rootVolumeSize: {{.node_volume_size}}
+  minSize: {{.node_count}}
+  maxSize: {{.node_count}}
   subnets:
-    {{range .availability_zones.value}}
+    {{range .availability_zones_list.value}}
     - {{.}}
     {{end}}
   nodeLabels:
@@ -135,16 +142,16 @@ kind: InstanceGroup
 metadata:
   name: bastions
   labels:
-    kops.k8s.io/cluster: {{.cluster_name.value}}
+    kops.k8s.io/cluster: {{.kops_subdomain.value}}
 # https://godoc.org/k8s.io/kops/pkg/apis/kops#InstanceGroupSpec
 spec:
   role: Bastion
-  image: {{.instance_ami.value}}
-  machineType: {{.bastion_instance_type.value}}
+  image: {{.instance_ami}}
+  machineType: {{.bastion_instance_type}}
   minSize: 1
   maxSize: 1
   subnets:
-    {{range .availability_zones.value}}
+    {{range .availability_zones_list.value}}
     - utility-{{.}}
     {{end}}
   nodeLabels:

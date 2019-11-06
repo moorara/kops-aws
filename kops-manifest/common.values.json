@@ -1,0 +1,16 @@
+{
+  "kubernetes_version": "1.14.6",
+  "instance_ami": "kope.io/k8s-1.14-debian-stretch-amd64-hvm-ebs-2019-08-16",
+  "master_instance_type": "t2.micro",
+  "master_volume_size": 32,
+  "node_count": 5,
+  "node_instance_type": "t2.micro",
+  "node_volume_size": 64,
+  "bastion_instance_type": "t2.micro",
+  "admin_access_cidrs": [
+    "0.0.0.0/0"
+  ],
+  "ssh_access_cidrs": [
+    "0.0.0.0/0"
+  ]
+}
