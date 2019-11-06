@@ -6,7 +6,7 @@ help='
 #   ./kops create       Creates the cluster
 #   ./kops update       Updates the cluster
 #   ./kops delete       Deletes the cluster
-#   ./kops template     Generates manifest file
+#   ./kops manifest     Generates manifest file
 #   ./kops terraform    Generates Terraform code
 #
 # FLAGS:
@@ -39,7 +39,7 @@ process_args() {
   master_volume=32
 
   # Default configurations for nodes
-  node_count=3
+  node_count=5
   node_size="t2.micro"
   node_volume=64
 
@@ -50,7 +50,7 @@ process_args() {
   while [[ $# > 0 ]]; do
     key="$1"
     case $key in
-      create|update|delete|template|terraform)
+      create|update|delete|manifest|terraform)
         cmd="$1"
         ;;
       -m|--master-count)
@@ -121,6 +121,8 @@ generate_ssh_keys() {
   ssh-keygen -f "$bastion_key" -t rsa -N '' 1> /dev/null
 	chmod 400 "$bastion_key"
 	mv "$bastion_key" "$bastion_key.pem"
+
+  echo -e "\033[1;36m ssh key for bastion hosts generated. \033[0m"
 }
 
 create_cluster() {
@@ -178,44 +180,58 @@ delete_cluster() {
     --yes
 }
 
-generate_template() {
+generate_manifest() {
   read_cluster_info
-  read_config_params
   generate_ssh_keys
 
-  kops create cluster "$cluster_name" \
-    `#Cloud` \
-      --cloud aws \
-      --state "$s3_bucket" \
-      --cloud-labels "$aws_tags" \
-    `#Networking` \
-      --topology private \
-      --networking weave \
-      --vpc "$vpc_id" \
-      --subnets "$private_subnets" \
-      --utility-subnets "$public_subnets" \
-    `#Masters` \
-      --master-zones "$availability_zones" \
-      --master-count "$master_count" \
-      --master-size "$master_size" \
-      --master-volume-size "$master_volume" \
-    `#Nodes` \
-      --zones "$availability_zones" \
-      --node-count "$node_count" \
-      --node-size "$node_size" \
-      --node-volume-size "$node_volume" \
-    `#Security` \
-      --authorization RBAC \
-      --admin-access "$admin_access_cidr" \
-      --bastion \
-      --ssh-public-key "$bastion_key.pub" \
-      --ssh-access "$ssh_access_cidr" \
-    `#DNS` \
-      --dns public \
-      --dns-zone "$dns_zone" \
-    `#Template` \
-      --dry-run \
-      --output yaml > ./kops-template/cluster.yaml
+  cd infra-terraform
+  terraform output -json > ../kops-manifest/terraform.values.json
+
+  cd ../kops-manifest
+
+  # Metadata for deployment
+  uuid=$(uuidgen)
+  owner=$(whoami)
+  git_url="https://github.com/moorara/kops-aws"
+  git_branch=$(git rev-parse --abbrev-ref HEAD)
+  git_commit=$(git rev-parse --short HEAD)
+
+  # Create the manifest file
+  kops toolbox template \
+    --name "$cluster_name" \
+    --template cluster-template.yaml \
+    --values terraform.values.json \
+    --values common.values.json \
+    --set-string cluster_name="$cluster_name" \
+    --set-string uuid="$uuid" \
+    --set-string owner="$owner" \
+    --set-string git_url="$git_url" \
+    --set-string git_branch="$git_branch" \
+    --set-string git_commit="$git_commit" \
+    --format-yaml \
+  > cluster.yaml
+
+  # Put the manifest file into the kops S3 bucket
+  # --force will ensure the state gets created for the first time
+  kops replace \
+    --filename cluster.yaml \
+    --name "$cluster_name" \
+    --state "$s3_bucket" \
+    --force
+
+  # Soecify public key for SSH (https://github.com/kubernetes/kops/issues/3693) 
+  kops create secret \
+    --name "$cluster_name" \
+    --state "$s3_bucket" \
+    sshpublickey admin -i "../$bastion_key.pub"
+
+  # Create the cluster
+  kops update cluster \
+    --name "$cluster_name" \
+    --state "$s3_bucket" \
+    --yes
+
+  cd ..
 }
 
 generate_terraform() {
@@ -270,8 +286,8 @@ case "$cmd" in
   delete)
     delete_cluster
     ;;
-  template)
-    generate_template
+  manifest)
+    generate_manifest
     ;;
   terraform)
     generate_terraform
