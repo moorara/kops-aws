@@ -1,3 +1,5 @@
+[![Build Status][workflow-image]][workflow-url]
+
 # kops-aws
 
 ## Prerequisites
@@ -13,16 +15,16 @@ You need to have the following tools installed:
 A _Keybase_ username with a key pair is required for encrypting the AWS Secret Access Key
 for _kops_ user by Terraform and decrypting it on your local machine.
 
-## Quick Start
+## Deployment
 
-### Prerequisites
+### 1. Prerequisites
 
 You need to have the following AWS resources:
 
   - A **Route53 Hosted Zone** for your domain
   - A **S3 Bucket** for Terraform backend state named as `terraform.<domain_name>`
 
-### Preparation
+### 2. Preparation
 
 The `infra-terraform` project will create the following resources for kops:
 
@@ -49,13 +51,13 @@ enable_vpc_logs  = true|false
 Now, run the following commands to deploy the infrastructure resources.
 
 ```
-make keys init plan
+make init plan
 make apply
 ```
 
 After this step, you have three options for deploying the cluster.
 
-### kops
+### 3.1 kops
 
 After the `infra-terraform` project is successfully deployed,
 change the directory to root and run the following command:
@@ -76,9 +78,18 @@ For deleting the cluster, run the following command:
 ./kops.sh delete
 ```
 
-### Manifest Template
+### 3.2 Manifest
 
-### Terraform
+**NOTE:** If using this approach, the `az_count` variable in `infra-terraform` project is also going to be the number of `masters` in your cluster.
+
+After the `infra-terraform` project is successfully deployed,
+change the directory to root and run the following command:
+
+```
+./kops.sh manifest
+```
+
+### 3.3 Terraform
 
 After the `infra-terraform` project is successfully deployed,
 change the directory to root and run the following command:
@@ -90,8 +101,7 @@ change the directory to root and run the following command:
 If no error, change the directory to `kops-terraform` and first run these commands:
 
 ```
-make init
-make upgrade
+make init upgrade
 ```
 
 This initialize the Terraform project and migrates the Terraform source code to the latest version (`0.12`).
@@ -102,11 +112,45 @@ make plan
 make apply
 ```
 
+## Tear Down
+
+For tearing down your cluster, you have to start with one of the three options that you deployed your cluster with.
+
+### 1.1 kops
+
+If you deployed your cluster using `kops.sh`, you can simply run:
+
+```
+./kops.sh delete
+```
+
+### 1.2 Manifest
+
+If you deployed your cluster using `kops.sh`, change the directory to the root and run:
+
+```
+./kops.sh delete
+```
+
+### 1.3 Terraform
+
+If you deployed your cluster using Terraform, change the directory to `kops-terraform` and run:
+
+```
+make destroy
+make clean purge
+```
+
+### 2. Cleanup
+
+Finally, you can clean up `infra-terraform` project by changing the directory to it and run:
+
+```
+make destroy clean
+```
+
 ## TO-DO
 
-  - [x] Using kops commands
-  - [ ] Using kops _manifest_ and _template_
-  - [x] Generating _Terraform_ code from kops
   - [ ] Configuring generated terraform code to use the right AWS credentials
 
 ## References
@@ -137,3 +181,7 @@ make apply
   - [etcd Backup/Restore](https://github.com/kubernetes/kops/blob/master/docs/operations/etcd_backup_restore_encryption.md)
   - [Updates & Upgrades](https://github.com/kubernetes/kops/blob/master/docs/operations/updates_and_upgrades.md)
   - [Upgrades & Migrations](https://github.com/kubernetes/kops/blob/master/docs/operations/cluster_upgrades_and_migrations.md)
+
+
+[workflow-url]: https://github.com/moorara/kops-aws/actions
+[workflow-image]: https://github.com/moorara/kops-aws/workflows/Main/badge.svg
