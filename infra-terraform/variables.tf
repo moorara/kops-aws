@@ -22,7 +22,7 @@ variable "region" {
 
 variable "environment" {
   type        = string
-  description = "The Environment name for deployment."
+  description = "The name of environment for deployment."
 }
 
 variable "uuid" {
