@@ -2,7 +2,7 @@
 
 output "environment" {
   value       = var.environment
-  description = "The Environment name for deployment."
+  description = "The name of environment for deployment."
 }
 
 output "region" {
