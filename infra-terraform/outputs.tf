@@ -1,13 +1,13 @@
 # https://www.terraform.io/docs/configuration/outputs.html
 
-output "environment" {
-  value       = var.environment
-  description = "The name of environment for deployment."
-}
-
 output "region" {
   value       = var.region
   description = "The AWS Region for deployment."
+}
+
+output "environment" {
+  value       = var.environment
+  description = "The name of environment for deployment."
 }
 
 output "availability_zones" {
