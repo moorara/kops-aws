@@ -82,6 +82,7 @@ variable "enable_vpc_logs" {
 }
 
 # https://en.wikipedia.org/wiki/Classful_network
+# https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 variable "vpc_cidrs" {
   type        = map(string)
   description = "VPC CIDR for each AWS Region."
