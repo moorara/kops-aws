@@ -30,11 +30,7 @@ init:
 
 .PHONY: validate
 validate:
-	@ terraform validate \
-	    -var uuid=$(uuid) \
-	    -var owner=$(owner) \
-	    -var git_branch=$(branch) \
-	    -var git_commit=$(commit)
+	@ terraform validate
 
 .PHONY: plan
 plan:
