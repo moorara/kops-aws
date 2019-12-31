@@ -2,6 +2,11 @@
 
 # kops-aws
 
+## TO-DO
+
+  - [ ] Making the cluster private and accessing to the cluster only through a bastion host
+  - [ ] Configuring generated terraform code to use the right AWS credentials
+
 ## Prerequisites
 
 You need to have the following tools installed:
@@ -148,10 +153,6 @@ Finally, you can clean up `infra-terraform` project by changing the directory to
 ```
 make destroy clean
 ```
-
-## TO-DO
-
-  - [ ] Configuring generated terraform code to use the right AWS credentials
 
 ## References
 
